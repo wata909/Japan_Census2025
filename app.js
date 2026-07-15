@@ -132,9 +132,7 @@ function styleFor(feature) {
   return {
     fillColor: has ? viridis(scale.norm(v)) : NO_DATA,
     fillOpacity: 0.82,
-    color: '#ffffff',
-    weight: 0.3,
-    opacity: 0.7,
+    stroke: false,   // 市区町村境界線は表示しない（面の塗りのみ）
   };
 }
 
@@ -170,7 +168,7 @@ function clearInfo() {
 function onEachFeature(feature, lyr) {
   lyr.on({
     mouseover: e => {
-      e.target.setStyle({ weight: 2, color: '#14181d', opacity: 1 });
+      e.target.setStyle({ stroke: true, weight: 2, color: '#14181d', opacity: 1 });
       e.target.bringToFront();
       showInfo(feature.properties);
     },
