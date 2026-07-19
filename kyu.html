@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>令和2年国勢調査 — 大正9年(1920)行政区域単位 人口増減（鳥取県）</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<style>
+  :root { --panel: rgba(255,255,255,0.94); --ink:#14181d; --ink-2:#4a5460; --ink-3:#7b8794; --line:#dfe3e8; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; }
+  body { font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif; color:var(--ink); }
+  #map { position:absolute; inset:0; }
+  .panel { position:absolute; z-index:2; background:var(--panel); backdrop-filter:blur(6px);
+           border:1px solid var(--line); border-radius:10px; box-shadow:0 2px 12px rgba(20,24,29,.10); }
+  #controls { top:12px; left:12px; width:300px; padding:14px 16px; }
+  #controls h1 { margin:0 0 2px; font-size:14px; font-weight:700; }
+  #controls .sub { margin:0 0 12px; font-size:11px; color:var(--ink-3); line-height:1.5; }
+  label { display:block; font-size:11px; color:var(--ink-2); margin-bottom:5px; font-weight:600; }
+  select { width:100%; padding:7px 9px; font-size:13px; font-family:inherit; color:var(--ink);
+           background:#fff; border:1px solid var(--line); border-radius:6px; }
+  #legend { margin-top:14px; }
+  #legend .ramp { height:12px; border-radius:3px; border:1px solid rgba(0,0,0,.08); }
+  #legend .ticks { display:flex; justify-content:space-between; font-size:10px; color:var(--ink-3);
+                   margin-top:4px; font-variant-numeric:tabular-nums; }
+  #legend .note { margin-top:8px; font-size:10px; color:var(--ink-3); line-height:1.5; }
+  #info { top:12px; right:12px; width:236px; padding:12px 14px; }
+  #info .name { font-size:15px; font-weight:700; }
+  #info .pref { font-size:11px; color:var(--ink-3); margin-bottom:9px; }
+  #info .value { font-size:24px; font-weight:700; font-variant-numeric:tabular-nums; }
+  #info .unit { font-size:12px; font-weight:500; color:var(--ink-2); margin-left:3px; }
+  #info .metric { font-size:11px; color:var(--ink-3); margin-top:2px; }
+  #info dl { margin:10px 0 0; padding-top:9px; border-top:1px solid var(--line); font-size:11px; }
+  #info dl div { display:flex; justify-content:space-between; padding:2px 0; }
+  #info dt { color:var(--ink-3); } #info dd { margin:0; font-variant-numeric:tabular-nums; }
+  #info .hint { font-size:11px; color:var(--ink-3); line-height:1.5; }
+  #status { position:absolute; bottom:12px; left:12px; z-index:2; font-size:11px; color:var(--ink-2);
+            background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:5px 9px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="controls" class="panel">
+  <h1>令和2年国勢調査 人口増減</h1>
+  <p class="sub">大正9年(1920)行政区域＝旧市町村単位に集約／2015→2020の変化。小地域(町丁・字)を空間割当して集計。</p>
+  <label for="metric">表示する項目</label>
+  <select id="metric"></select>
+  <div id="legend">
+    <div class="ramp" id="ramp"></div>
+    <div class="ticks" id="ticks"></div>
+    <div class="note" id="legend-note"></div>
+  </div>
+</div>
+<div id="info" class="panel">
+  <div class="hint" id="info-hint">旧市町村にカーソルを合わせると詳細を表示します。</div>
+  <div id="info-body" hidden>
+    <div class="name" id="i-name"></div>
+    <div class="pref" id="i-pref"></div>
+    <div class="value"><span id="i-value"></span><span class="unit" id="i-unit"></span></div>
+    <div class="metric" id="i-metric"></div>
+    <dl>
+      <div><dt>人口（2020年）</dt><dd id="i-pop20"></dd></div>
+      <div><dt>人口（2015年）</dt><dd id="i-pop15"></dd></div>
+      <div><dt>人口増減率</dt><dd id="i-chg"></dd></div>
+      <div><dt>世帯（2020年）</dt><dd id="i-hh"></dd></div>
+    </dl>
+  </div>
+</div>
+<div id="status">読み込み中…</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/pmtiles@3.0.7/dist/pmtiles.js"></script>
+<script src="kyu-app.js"></script>
+</body>
+</html>
