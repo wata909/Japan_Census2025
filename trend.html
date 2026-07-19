@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>国勢調査 人口減少率の経年変化 — 旧市町村(大正9年)単位</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<style>
+  :root { --panel:#fff; --ink:#14181d; --ink-2:#4a5460; --ink-3:#7b8794; --line:#e2e6ea; --pane:344px; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; }
+  body { font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif; color:var(--ink); }
+  /* 左常駐ペイン */
+  #pane { position:absolute; top:0; left:0; bottom:0; width:var(--pane); z-index:2; background:var(--panel);
+          border-right:1px solid var(--line); box-shadow:2px 0 12px rgba(20,24,29,.06);
+          overflow-y:auto; padding:16px 18px; }
+  #map { position:absolute; top:0; right:0; bottom:0; left:var(--pane); }
+  h1 { margin:0 0 2px; font-size:15px; font-weight:700; }
+  .sub { margin:0 0 14px; font-size:11px; color:var(--ink-3); line-height:1.5; }
+  label { display:block; font-size:11px; color:var(--ink-2); margin:0 0 5px; font-weight:600; }
+  select { width:100%; padding:7px 9px; font-size:13px; font-family:inherit; color:var(--ink);
+           background:#fff; border:1px solid var(--line); border-radius:6px; margin-bottom:12px; }
+  /* 期間セレクタ（ボタン群） */
+  .periods { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:14px; }
+  .periods button { padding:7px 4px; font-size:12px; font-family:inherit; cursor:pointer;
+    border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--ink-2); font-variant-numeric:tabular-nums; }
+  .periods button.active { background:#14181d; color:#fff; border-color:#14181d; font-weight:700; }
+  /* 凡例 */
+  .legend .ramp { height:12px; border-radius:3px; border:1px solid rgba(0,0,0,.08); }
+  .legend .ticks { display:flex; justify-content:space-between; font-size:10px; color:var(--ink-3); margin-top:4px; font-variant-numeric:tabular-nums; }
+  .legend .note { margin-top:7px; font-size:10px; color:var(--ink-3); line-height:1.5; }
+  .nodata-key { display:flex; align-items:center; gap:6px; margin-top:6px; font-size:10px; color:var(--ink-3); }
+  .nodata-key i { width:14px; height:12px; border-radius:2px; background:#d6dbe0; border:1px solid rgba(0,0,0,.08); }
+  hr { border:0; border-top:1px solid var(--line); margin:16px 0; }
+  /* 経年変化ブロック */
+  #ts .uname { font-size:14px; font-weight:700; }
+  #ts .ugun { font-size:11px; color:var(--ink-3); margin-bottom:10px; }
+  #ts .hint { font-size:11px; color:var(--ink-3); line-height:1.6; }
+  #chart { width:100%; }
+  #ptable { width:100%; border-collapse:collapse; font-size:11px; margin-top:10px; font-variant-numeric:tabular-nums; }
+  #ptable th,#ptable td { padding:3px 4px; text-align:right; border-bottom:1px solid var(--line); }
+  #ptable th:first-child,#ptable td:first-child { text-align:left; color:var(--ink-3); font-weight:400; }
+  #ptable th { color:var(--ink-3); font-weight:600; }
+  #status { position:absolute; bottom:10px; left:calc(var(--pane) + 10px); z-index:2; font-size:11px; color:var(--ink-2);
+            background:rgba(255,255,255,.94); border:1px solid var(--line); border-radius:6px; padding:4px 8px; }
+  @media (max-width:720px){ :root{ --pane:0px; } #pane{ position:relative; width:100%; height:auto; bottom:auto; } #map{ position:relative; height:60vh; left:0; } }
+</style>
+</head>
+<body>
+<div id="pane">
+  <h1>人口減少率の経年変化</h1>
+  <p class="sub">国勢調査 小地域を大正9年(1920)行政区域＝旧市町村単位に集約。5年ごとの人口増減率（2000→2020）。</p>
+
+  <label for="pref">都道府県</label>
+  <select id="pref"></select>
+
+  <label>地図に表示する期間</label>
+  <div class="periods" id="periods"></div>
+
+  <div class="legend">
+    <div class="ramp" id="ramp"></div>
+    <div class="ticks" id="ticks"><span>−5%以下</span><span>0</span><span>+5%以上</span></div>
+    <div class="note">増加＝黄・減少＝青紫。<b>±5%で固定</b>（±5%超は端の色で頭打ち）なので、期間をまたいで比較できます。</div>
+    <div class="nodata-key"><i></i>データなし（無居住・0人口）</div>
+  </div>
+
+  <hr>
+  <div id="ts">
+    <div id="ts-empty" class="hint">地図の旧市町村にカーソルを合わせると、その地区の<b>人口減少率の経年変化</b>（2000→2020の5年ごと）を表示します。</div>
+    <div id="ts-body" hidden>
+      <div class="uname" id="u-name"></div>
+      <div class="ugun" id="u-gun"></div>
+      <svg id="chart" viewBox="0 0 300 150" preserveAspectRatio="xMidYMid meet" role="img"></svg>
+      <table id="ptable">
+        <thead><tr><th>期間</th><th>人口</th><th>増減率</th></tr></thead>
+        <tbody id="ptbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div id="map"></div>
+<div id="status">読み込み中…</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/pmtiles@3.0.7/dist/pmtiles.js"></script>
+<script src="trend-app.js"></script>
+</body>
+</html>
