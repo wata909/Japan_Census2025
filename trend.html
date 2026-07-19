@@ -25,9 +25,11 @@
   .periods button { padding:7px 4px; font-size:12px; font-family:inherit; cursor:pointer;
     border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--ink-2); font-variant-numeric:tabular-nums; }
   .periods button.active { background:#14181d; color:#fff; border-color:#14181d; font-weight:700; }
-  /* 凡例 */
-  .legend .ramp { height:12px; border-radius:3px; border:1px solid rgba(0,0,0,.08); }
-  .legend .ticks { display:flex; justify-content:space-between; font-size:10px; color:var(--ink-3); margin-top:4px; font-variant-numeric:tabular-nums; }
+  /* 凡例（5%刻みの離散クラス） */
+  .legend .ramp { display:flex; height:12px; border-radius:3px; overflow:hidden; border:1px solid rgba(0,0,0,.08); }
+  .legend .ramp span { flex:1; }
+  .legend .ticks { display:grid; grid-template-columns:repeat(10,1fr); font-size:9px; color:var(--ink-3); margin-top:3px; font-variant-numeric:tabular-nums; }
+  .legend .ticks span { text-align:right; }
   .legend .note { margin-top:7px; font-size:10px; color:var(--ink-3); line-height:1.5; }
   .nodata-key { display:flex; align-items:center; gap:6px; margin-top:6px; font-size:10px; color:var(--ink-3); }
   .nodata-key i { width:14px; height:12px; border-radius:2px; background:#d6dbe0; border:1px solid rgba(0,0,0,.08); }
@@ -59,8 +61,8 @@
 
   <div class="legend">
     <div class="ramp" id="ramp"></div>
-    <div class="ticks" id="ticks"><span>−5%以下</span><span>0</span><span>+5%以上</span></div>
-    <div class="note">増加＝黄・減少＝青紫。<b>±5%で固定</b>（±5%超は端の色で頭打ち）なので、期間をまたいで比較できます。</div>
+    <div class="ticks" id="ticks"></div>
+    <div class="note"><b>5%刻み（−20〜+20%）</b>。増加＝黄・減少＝青紫。±20%を超える値は端の色で頭打ち。期間をまたいで比較できます。</div>
     <div class="nodata-key"><i></i>データなし（無居住・0人口）</div>
   </div>
 

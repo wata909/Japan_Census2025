@@ -17,18 +17,17 @@ function viridis(t){ t=Math.max(0,Math.min(1,t)); const x=t*(VIRIDIS.length-1);
   const i=Math.min(Math.floor(x),VIRIDIS.length-2), f=x-i, a=VIRIDIS[i], b=VIRIDIS[i+1];
   const c=[0,1,2].map(k=>Math.round(a[k]+(b[k]-a[k])*f)); return `rgb(${c[0]},${c[1]},${c[2]})`; }
 
-// ±5%固定の発散スケール：-5→viridis(0)、0→viridis(.5)、+5→viridis(1)。範囲外は頭打ち。
-const LIM = 5;
-function colorFor(v){ if(v==null||!isFinite(v)) return NO_DATA;
-  const t = (Math.max(-LIM,Math.min(LIM,v)) + LIM) / (2*LIM); return viridis(t); }
-function rampCss(){ return `linear-gradient(to right, ${VIRIDIS.map((c,i)=>
-  `rgb(${c[0]},${c[1]},${c[2]}) ${(i/(VIRIDIS.length-1)*100).toFixed(1)}%`).join(', ')})`; }
-// MapLibre 用の固定色式（-5〜+5を10段でinterpolate、has判定でグレー）
+// 5%刻みの離散クラス（−20〜+20%）。境界9本→10クラス。外側は頭打ち。
+const BREAKS = [-20,-15,-10,-5,0,5,10,15,20];      // クラス境界
+const NCLASS = BREAKS.length + 1;                   // 10クラス
+const CLASS_COLORS = Array.from({length:NCLASS}, (_,i)=>viridis(i/(NCLASS-1)));
+function classIndex(v){ let i=0; for(const b of BREAKS){ if(v>=b) i++; else break; } return i; }
+function colorFor(v){ if(v==null||!isFinite(v)) return NO_DATA; return CLASS_COLORS[classIndex(v)]; }
+// MapLibre 用の step 式（離散）。has判定でグレー。
 function fillExpression(id){
-  const interp=['interpolate',['linear'],['to-number',['get',id]]];
-  for(let i=0;i<VIRIDIS.length;i++){ const v=-LIM + 2*LIM*i/(VIRIDIS.length-1);
-    interp.push(v, viridis(i/(VIRIDIS.length-1))); }
-  return ['case',['has',id],interp,NO_DATA];
+  const step=['step',['to-number',['get',id]], CLASS_COLORS[0]];
+  BREAKS.forEach((b,i)=>{ step.push(b, CLASS_COLORS[i+1]); });
+  return ['case',['has',id],step,NO_DATA];
 }
 function fmt(v,d=0){ if(v==null||!isFinite(v)) return '—';
   return v.toLocaleString('ja-JP',{minimumFractionDigits:d,maximumFractionDigits:d}); }
@@ -41,7 +40,13 @@ const $ = id => document.getElementById(id);
 
 let map, PREF, PCONF, period = PERIODS[3], hoveredId = null;
 
-function renderLegend(){ $('ramp').style.background = rampCss(); }
+function renderLegend(){
+  // 10クラスの色ブロック
+  $('ramp').innerHTML = CLASS_COLORS.map(c=>`<span style="background:${c}"></span>`).join('');
+  // 各クラスの上限境界を右寄せ（最終クラスは以上）
+  const labels = BREAKS.map(b=>`${b>0?'+':''}${b}`).concat(['']);
+  $('ticks').innerHTML = labels.map(t=>`<span>${t}</span>`).join('');
+}
 
 function repaint(){
   map.setPaintProperty('choropleth','fill-color', fillExpression(period.id));
@@ -60,11 +65,12 @@ function setHover(id){
 function drawChart(p){
   const rates = PERIODS.map(pp=>{ const v=p[pp.id]; return (v==null||v==='')?null:Number(v); });
   const W=300,H=150, padL=8,padR=8,padT=10,padB=26, bw=(W-padL-padR)/PERIODS.length;
-  const scale = v => { const c=Math.max(-8,Math.min(8,v)); return (H-padB)/2 - c/8*((H-padB)/2 - padT); };
+  const CLAMP=20;
+  const scale = v => { const c=Math.max(-CLAMP,Math.min(CLAMP,v)); return (H-padB)/2 - c/CLAMP*((H-padB)/2 - padT); };
   const zeroY=(H-padB)/2;
   let s=`<line x1="${padL}" y1="${zeroY}" x2="${W-padR}" y2="${zeroY}" stroke="#c8ccd2" stroke-width="1"/>`;
-  // ±5%の基準線
-  [-5,5].forEach(g=>{ const y=scale(g);
+  // ±10%・±20%の基準線
+  [-20,-10,10,20].forEach(g=>{ const y=scale(g);
     s+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#eceef1" stroke-width="1" stroke-dasharray="3 3"/>`;
     s+=`<text x="${W-padR}" y="${y-2}" font-size="8" fill="#adb4bd" text-anchor="end">${g>0?'+':''}${g}%</text>`; });
   rates.forEach((v,i)=>{
