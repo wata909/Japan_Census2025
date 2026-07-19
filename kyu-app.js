@@ -56,44 +56,11 @@ function fillExpression(metric){
 }
 
 const R2 = 'https://pub-c579cfd9d6374549b3cc48a71c02eaff.r2.dev';
-
-// 都道府県ごとの設定（表示範囲・県名）。?pref=16 のように切替。
-const PREFS = {
-  '31': { name:'鳥取県', bounds:[[133.10,35.03],[134.53,35.63]] },
-  '16': { name:'富山県', bounds:[[136.68,36.24],[137.85,37.02]] },
-};
-const PREF = (new URLSearchParams(location.search).get('pref') || '31');
-const PCONF = PREFS[PREF] || PREFS['31'];
-
 const protocol = new pmtiles.Protocol();
 maplibregl.addProtocol('pmtiles', protocol.tile);
 const $ = id => document.getElementById(id);
 let metric = METRICS[0];
-
-const map = new maplibregl.Map({
-  container: 'map',
-  style: {
-    version: 8,
-    sources: {
-      gsi: { type:'raster', tiles:['https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png'],
-        tileSize:256, maxzoom:18,
-        attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル</a>｜統計: 総務省統計局 令和2年国勢調査 小地域｜集約単位: 国土数値情報 N03 大正9年(1920)' },
-      kyu: { type:'vector', url:`pmtiles://${R2}/kyu_census2020_${PREF}.pmtiles`, promoteId:'kyu_id' },
-    },
-    layers: [
-      { id:'gsi', type:'raster', source:'gsi' },
-      { id:'choropleth', type:'fill', source:'kyu', 'source-layer':'kyu',
-        paint:{ 'fill-color':NO_DATA, 'fill-opacity':0.82 } },
-      { id:'hover-line', type:'line', source:'kyu', 'source-layer':'kyu',
-        paint:{ 'line-color':'#14181d',
-          'line-width':['case',['boolean',['feature-state','hover'],false],2,0] } },
-    ],
-  },
-  center:[(PCONF.bounds[0][0]+PCONF.bounds[1][0])/2,(PCONF.bounds[0][1]+PCONF.bounds[1][1])/2],
-  zoom:8, minZoom:6, maxZoom:13,
-});
-map.addControl(new maplibregl.NavigationControl({showCompass:false}),'bottom-right');
-const PREF_BOUNDS = PCONF.bounds;
+let map, PREF, PCONF, hoveredId = null;
 
 function renderLegend(){
   const s=buildStops(metric); $('ramp').style.background=rampCss();
@@ -102,7 +69,6 @@ function renderLegend(){
 }
 function repaint(){ map.setPaintProperty('choropleth','fill-color',fillExpression(metric)); renderLegend(); }
 
-let hoveredId=null;
 function setHover(id){
   if(hoveredId===id) return;
   if(hoveredId!==null) map.setFeatureState({source:'kyu',sourceLayer:'kyu',id:hoveredId},{hover:false});
@@ -126,21 +92,54 @@ function showInfo(p){
 }
 function clearInfo(){ $('info-hint').hidden=false; $('info-body').hidden=true; }
 
-map.on('mousemove','choropleth',e=>{ if(!e.features.length) return;
-  map.getCanvas().style.cursor='pointer'; const f=e.features[0]; setHover(f.id); showInfo(f.properties); });
-map.on('mouseleave','choropleth',()=>{ map.getCanvas().style.cursor=''; setHover(null); clearInfo(); });
-
-const sel=$('metric');
-sel.innerHTML=METRICS.map(m=>`<option value="${m.id}">${m.label}</option>`).join('');
-sel.addEventListener('change',()=>{ metric=METRICS.find(m=>m.id===sel.value); repaint(); });
-
 async function init(){
-  // 県名を見出しに反映
+  const PREFS = await (await fetch('data/kyu_prefs.json')).json();
+  PREF = new URLSearchParams(location.search).get('pref');
+  if(!PREFS[PREF]) PREF = PREFS['31'] ? '31' : Object.keys(PREFS).sort()[0];
+  PCONF = PREFS[PREF];
+
+  // 都道府県セレクタ（コード順）
+  const psel = $('pref');
+  psel.innerHTML = Object.keys(PREFS).sort().map(c=>`<option value="${c}"${c===PREF?' selected':''}>${PREFS[c].name}</option>`).join('');
+  psel.addEventListener('change', ()=>{ location.search = '?pref=' + psel.value; });
+
+  // 指標セレクタ
+  const msel = $('metric');
+  msel.innerHTML = METRICS.map(m=>`<option value="${m.id}">${m.label}</option>`).join('');
+  msel.addEventListener('change', ()=>{ metric = METRICS.find(m=>m.id===msel.value); repaint(); });
+
   document.title = `令和2年国勢調査 — 大正9年(1920)行政区域単位 人口増減（${PCONF.name}）`;
   const h1 = document.querySelector('#controls h1'); if(h1) h1.textContent = `令和2年国勢調査 人口増減（${PCONF.name}）`;
+
   VALUES = await (await fetch(`data/kyu_values_${PREF}.json`)).json();
-  map.on('load',()=>{ map.fitBounds(PREF_BOUNDS,{padding:{top:20,left:330,right:260,bottom:20},duration:0}); repaint(); });
-  map.on('idle',()=>{ $('status').textContent=`${PCONF.name}の旧市町村（大正9年）で表示・PMTiles/R2配信`; });
-  map.on('error',e=>{ $('status').textContent='エラー: '+(e.error?.message||e.type); });
+
+  const bb = PCONF.bounds;
+  map = new maplibregl.Map({
+    container:'map',
+    style:{ version:8,
+      sources:{
+        gsi:{ type:'raster', tiles:['https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png'],
+          tileSize:256, maxzoom:18,
+          attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル</a>｜統計: 総務省統計局 令和2年国勢調査 小地域｜集約単位: 国土数値情報 N03 大正9年(1920)' },
+        kyu:{ type:'vector', url:`pmtiles://${R2}/kyu_census2020_${PREF}.pmtiles`, promoteId:'kyu_id' },
+      },
+      layers:[
+        { id:'gsi', type:'raster', source:'gsi' },
+        { id:'choropleth', type:'fill', source:'kyu', 'source-layer':'kyu',
+          paint:{ 'fill-color':NO_DATA, 'fill-opacity':0.82 } },
+        { id:'hover-line', type:'line', source:'kyu', 'source-layer':'kyu',
+          paint:{ 'line-color':'#14181d', 'line-width':['case',['boolean',['feature-state','hover'],false],2,0] } },
+      ],
+    },
+    center:[(bb[0][0]+bb[1][0])/2,(bb[0][1]+bb[1][1])/2], zoom:8, minZoom:5, maxZoom:13,
+  });
+  map.addControl(new maplibregl.NavigationControl({showCompass:false}),'bottom-right');
+
+  map.on('mousemove','choropleth', e=>{ if(!e.features.length) return;
+    map.getCanvas().style.cursor='pointer'; const f=e.features[0]; setHover(f.id); showInfo(f.properties); });
+  map.on('mouseleave','choropleth', ()=>{ map.getCanvas().style.cursor=''; setHover(null); clearInfo(); });
+  map.on('load', ()=>{ map.fitBounds(bb,{padding:{top:20,left:330,right:260,bottom:20},duration:0}); repaint(); });
+  map.on('idle', ()=>{ $('status').textContent=`${PCONF.name}の旧市町村（大正9年）で表示・PMTiles/R2配信`; });
+  map.on('error', e=>{ $('status').textContent='エラー: '+(e.error?.message||e.type); });
 }
 init();
