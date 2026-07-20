@@ -1,0 +1,26 @@
+SPDX-License-Identifier: CC0-1.0
+
+Creative Commons CC0 1.0 Universal (Public Domain Dedication)
+
+To the extent possible under law, the author(s) of this repository have
+dedicated all copyright and related and neighboring rights to the code,
+configuration, and generated outputs in this repository to the public domain
+worldwide. This work is distributed without any warranty.
+
+You should have received a copy of the CC0 1.0 legal code along with this work.
+If not, see: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+
+--------------------------------------------------------------------------------
+
+Note on source data (NOT covered by this dedication):
+
+The population statistics and boundary data used to generate the maps are
+provided by third parties and remain subject to their own terms of use:
+
+- 国勢調査（人口速報集計・小地域集計）: 総務省統計局 / e-Stat
+- 国土数値情報 行政区域データ（N03, 2020年版および大正9年=1920年版）: 国土交通省
+- 背景地図（地理院タイル）: 国土地理院
+
+CC0 waives only the rights of this repository's author(s). It does not and
+cannot waive any rights held by the providers of the source data above. When
+reusing the data or derived layers, keep the appropriate source attribution.
